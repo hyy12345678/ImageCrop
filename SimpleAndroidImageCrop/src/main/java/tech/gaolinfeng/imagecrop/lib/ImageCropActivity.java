@@ -5,8 +5,10 @@ import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.BitmapRegionDecoder;
+import android.graphics.Matrix;
 import android.graphics.Rect;
 import android.graphics.RectF;
+import android.media.ExifInterface;
 import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
@@ -16,6 +18,7 @@ import android.widget.Toast;
 
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
+import java.io.IOException;
 
 /**
  * Created by gaolf on 15/12/21.
@@ -70,6 +73,25 @@ public class ImageCropActivity extends Activity {
         cropImageView = (CropImageView) findViewById(R.id.crop_image);
         cropImageView.setCropCircle(isCircle);
 
+        Bitmap oriBitmap = BitmapFactory.decodeFile(inPath, new BitmapFactory.Options());
+        int degree = readPictureDegree(inPath);
+        if(degree != 0){
+            Bitmap rotateBitmap = rotaingImageView(degree, oriBitmap);
+            FileOutputStream fos = null;
+            try {
+                fos = new FileOutputStream(inPath);
+                rotateBitmap.compress(Bitmap.CompressFormat.PNG, 70, fos);
+            } catch (FileNotFoundException e) {
+                e.printStackTrace();
+            } finally {
+                IOUtil.closeQuietly(fos);
+            }
+        }
+
+
+
+
+
         // 根据手机屏幕大小找出合适的inSampleSize
         BitmapFactory.Options options = new BitmapFactory.Options();
         options.inJustDecodeBounds = true;
@@ -90,8 +112,10 @@ public class ImageCropActivity extends Activity {
         inSampleSize = Math.max(inSampleSizeWidth, inSampleSizeHeight);
         options.inJustDecodeBounds = false;
         options.inSampleSize = inSampleSize;
+
         Bitmap bitmap = BitmapFactory.decodeFile(inPath, options);
         cropImageView.setImageBitmap(bitmap);
+
         cropImageView.setEdge(cropRect);
         cropImageView.startCrop();
 
@@ -225,4 +249,38 @@ public class ImageCropActivity extends Activity {
         }
     }
 
+
+    public static int readPictureDegree(String path) {
+        int degree  = 0;
+        try {
+            ExifInterface exifInterface = new ExifInterface(path);
+            int orientation = exifInterface.getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL);
+            switch (orientation) {
+                case ExifInterface.ORIENTATION_ROTATE_90:
+                    degree = 90;
+                    break;
+                case ExifInterface.ORIENTATION_ROTATE_180:
+                    degree = 180;
+                    break;
+                case ExifInterface.ORIENTATION_ROTATE_270:
+                    degree = 270;
+                    break;
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return degree;
+    }
+
+
+    public static Bitmap rotaingImageView(int angle , Bitmap bitmap) {
+        //旋转图片 动作
+        Matrix matrix = new Matrix();;
+        matrix.postRotate(angle);
+        System.out.println("angle2=" + angle);
+        // 创建新的图片
+        Bitmap resizedBitmap = Bitmap.createBitmap(bitmap, 0, 0,
+                bitmap.getWidth(), bitmap.getHeight(), matrix, true);
+        return resizedBitmap;
+    }
 }
